@@ -2,3 +2,4 @@ base:
   '*':
     - base
     - db
+    - commands

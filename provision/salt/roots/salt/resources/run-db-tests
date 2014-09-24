@@ -1,0 +1,3 @@
+#!/bin/bash
+set -e
+find /vagrant/tests -name '*.sql' | PGDATABASE=test xargs pg_prove --verbose
