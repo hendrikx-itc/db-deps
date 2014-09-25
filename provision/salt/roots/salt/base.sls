@@ -23,3 +23,10 @@ vagrant-unix-user:
     - user: vagrant
     - group: vagrant
     - mode: 644
+
+/home/vagrant/.tmux.conf:
+  file.managed:
+    - source: salt://resources/.tmux.conf
+    - user: vagrant
+    - group: vagrant
+    - mode: 644
