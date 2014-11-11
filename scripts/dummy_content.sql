@@ -34,12 +34,12 @@ COMMENT ON VIEW intermediate1 IS 'Some test intermediate view with ''quotes'' on
 -- Function on_intermediate1
 ----------------------------
 
-CREATE FUNCTION on_intermediate1(intermediate1) RETURNS integer
+CREATE FUNCTION on_intermediate1(intermediate1, integer) RETURNS integer
 AS $$
 SELECT $1.id;
 $$ LANGUAGE sql IMMUTABLE;
 
-GRANT EXECUTE ON FUNCTION public.on_intermediate1(intermediate1) TO readonly_user;
+GRANT EXECUTE ON FUNCTION public.on_intermediate1(intermediate1, integer) TO readonly_user;
 
 
 --------------
