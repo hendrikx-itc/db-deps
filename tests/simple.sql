@@ -1,5 +1,8 @@
 BEGIN;
 
+--------
+-- Setup
+--------
 CREATE TABLE stats (
     id integer,
     x integer
@@ -8,6 +11,9 @@ CREATE TABLE stats (
 CREATE VIEW stats_ex AS
 SELECT id, x + 1 AS "x'" FROM stats;
 
+--------
+-- Tests
+--------
 SELECT plan(2);
 
 SELECT is(
