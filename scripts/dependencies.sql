@@ -176,6 +176,15 @@ $$ LANGUAGE sql STABLE;
 CREATE CAST (obj_ref AS text) WITH FUNCTION to_char(obj_ref);
 
 
+CREATE OR REPLACE FUNCTION to_char(dep)
+    RETURNS text
+AS $$
+SELECT $1.obj::text;
+$$ LANGUAGE sql STABLE;
+
+CREATE CAST (dep AS text) WITH FUNCTION to_char(dep);
+
+
 CREATE OR REPLACE FUNCTION owner_function_statement(oid)
     RETURNS varchar
 AS $$
