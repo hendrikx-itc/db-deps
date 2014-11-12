@@ -3,9 +3,7 @@ BEGIN;
 --------
 -- Setup
 --------
-DROP ROLE IF EXISTS dummy_user;
 CREATE ROLE dummy_user;
-
 
 CREATE VIEW dummy AS
 SELECT 1 AS x, 2 AS y;
