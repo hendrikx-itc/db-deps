@@ -1,3 +1,4 @@
+DROP ROLE IF EXISTS readonly_user;
 CREATE ROLE readonly_user;
 
 --------------
