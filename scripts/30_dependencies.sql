@@ -6,7 +6,7 @@ SELECT
 FROM information_schema.role_table_grants rtg
 JOIN pg_class cl ON cl.relname = rtg.table_name
 JOIN pg_roles r ON r.oid = cl.relowner
-JOIN pg_namespace nsp ON nsp.nspname = rtg.table_schema
+JOIN pg_namespace nsp ON nsp.oid = cl.relnamespace AND nsp.nspname = rtg.table_schema
 WHERE cl.oid = $1 AND grantee <> r.rolname;
 $$ LANGUAGE sql STABLE;
 
