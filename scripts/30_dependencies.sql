@@ -445,21 +445,43 @@ AS $$
 $$ LANGUAGE sql STABLE;
 
 
+CREATE OR REPLACE FUNCTION dep_recurse.dependent_create_statements(dep_recurse.obj_ref)
+    RETURNS SETOF varchar
+AS $$
+    SELECT dep_recurse.creation_statements(d.obj) FROM dep_recurse.deps($1) d ORDER BY d.distance ASC;
+$$ LANGUAGE sql STABLE;
+
+
+CREATE OR REPLACE FUNCTION dep_recurse.execute(statements varchar[])
+    RETURNS void
+AS $$
+DECLARE
+    statement varchar;
+BEGIN
+    FOREACH statement IN ARRAY statements LOOP
+        EXECUTE statement;
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql VOLATILE;
+
+COMMENT FUNCTION dep_recurse.execute(varchar[]) IS
+'execute a set of schema altering queries';
+
+
 CREATE OR REPLACE FUNCTION dep_recurse.alter(obj dep_recurse.obj_ref, changes varchar[])
     RETURNS dep_recurse.obj_ref
 AS $$
 DECLARE
-    statement varchar;
     drop_statements varchar[];
-    recreation_statements varchar[];
+    recreate_statements varchar[];
     tmp_deps dep_recurse.dep[];
 BEGIN
-    SELECT dep_recurse.deps($1) INTO tmp_deps;
-    SELECT array_agg(stat) INTO recreation_statements FROM dep_recurse.creation_statements($1) stat;
+    SELECT array_agg(d) INTO drop_statements FROM dep_recurse.dependent_drop_statements($1) d;
+    SELECT array_agg(c) INTO recreate_statements FROM dep_recurse.dependent_create_statements($1) c;
 
-    FOREACH statement IN ARRAY recreation_statements LOOP
-        EXECUTE statement;
-    END LOOP;
+    PERFORM dep_recurse.execute(drop_statements);
+    PERFORM dep_recurse.execute(changes);
+    PERFORM dep_recurse.execute(recreate_statements);
 
     RETURN $1;
 END;
