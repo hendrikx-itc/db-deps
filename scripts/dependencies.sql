@@ -11,6 +11,14 @@ WHERE cl.oid = $1 AND grantee <> r.rolname;
 $$ LANGUAGE sql STABLE;
 
 
+CREATE OR REPLACE FUNCTION dep_recurse.owner_view_statement(oid)
+    RETURNS text
+AS $$
+SELECT
+    format('ALTER VIEW %I.%I OWNER TO %s;', nsp.nspname, cl.relname, r.rolname)
+FROM pg_class cl
+JOIN pg_namespace nsp ON nsp.oid = cl.relnamespace
+JOIN pg_roles r ON r.oid = cl.relowner
 WHERE cl.oid = $1;
 $$ LANGUAGE sql STABLE;
 
