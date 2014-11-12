@@ -464,7 +464,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql VOLATILE;
 
-COMMENT FUNCTION dep_recurse.execute(varchar[]) IS
+COMMENT ON FUNCTION dep_recurse.execute(varchar[]) IS
 'execute a set of schema altering queries';
 
 
