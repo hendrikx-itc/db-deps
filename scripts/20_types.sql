@@ -1,4 +1,4 @@
-CREATE TYPE obj_type AS ENUM (
+CREATE TYPE dep_recurse.obj_type AS ENUM (
     'table',
     'view',
     'materialized view',
@@ -6,13 +6,13 @@ CREATE TYPE obj_type AS ENUM (
 );
 
 
-CREATE TYPE obj_ref AS (
+CREATE TYPE dep_recurse.obj_ref AS (
     obj_id oid,
-    obj_type obj_type
+    obj_type dep_recurse.obj_type
 );
 
 
-CREATE TYPE dep AS (
-    obj obj_ref,
+CREATE TYPE dep_recurse.dep AS (
+    obj dep_recurse.obj_ref,
     distance integer
 );
