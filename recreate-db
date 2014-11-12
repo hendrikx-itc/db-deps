@@ -8,7 +8,7 @@ psql -d postgres -c "DROP DATABASE $DBNAME;"
 psql -d postgres -c "CREATE DATABASE $DBNAME;"
 psql -d $DBNAME -c "CREATE EXTENSION pgtap;"
 
-find $SOURCEPATH -name '*.sql' | while read filepath
+find $SOURCEPATH -name '*.sql' | sort | while read filepath
 do
 	psql -d $DBNAME < $filepath
 done
