@@ -10,6 +10,6 @@ psql -d $DBNAME -c "CREATE EXTENSION pgtap;"
 
 find $SOURCEPATH -name '*.sql' | sort | while read filepath
 do
-	psql -d $DBNAME < $filepath
+	psql -d $DBNAME -v ON_ERROR_STOP=1 -f $filepath
 done
 
