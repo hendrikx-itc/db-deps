@@ -124,6 +124,16 @@ $$ LANGUAGE sql STABLE;
 --$$ LANGUAGE sql STABLE;
 
 
+CREATE OR REPLACE FUNCTION dep_recurse.table_to_char(oid)
+    RETURNS text
+AS $$
+SELECT format('%I.%I', nspname, relname)
+FROM pg_class
+JOIN pg_namespace ON relnamespace = pg_namespace.oid
+WHERE pg_class.oid = $1;
+$$ LANGUAGE sql STABLE;
+
+
 CREATE OR REPLACE FUNCTION dep_recurse.view_to_char(oid)
     RETURNS text
 AS $$
@@ -180,6 +190,7 @@ CREATE OR REPLACE FUNCTION dep_recurse.to_char(dep_recurse.obj_ref)
     RETURNS text
 AS $$
 SELECT CASE $1.obj_type
+WHEN 'table' THEN dep_recurse.table_to_char($1.obj_id)
 WHEN 'view' THEN dep_recurse.view_to_char($1.obj_id)
 WHEN 'materialized view' THEN dep_recurse.view_to_char($1.obj_id)
 WHEN 'function' THEN dep_recurse.function_to_char($1.obj_id)
