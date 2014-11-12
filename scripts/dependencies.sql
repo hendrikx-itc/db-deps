@@ -81,7 +81,7 @@ $$ LANGUAGE sql STABLE;
 CREATE OR REPLACE FUNCTION table_ref(obj_schema name, obj_name name)
     RETURNS obj_ref
 AS $$
-    SELECT pg_class.oid, 'table'::varchar
+    SELECT pg_class.oid, 'table'::obj_type
     FROM pg_class
     JOIN pg_namespace ON pg_class.relnamespace = pg_namespace.oid
     WHERE pg_namespace.nspname = obj_schema AND pg_class.relname = obj_name
@@ -91,7 +91,7 @@ $$ LANGUAGE sql STABLE;
 CREATE OR REPLACE FUNCTION view_ref(obj_schema name, obj_name name)
     RETURNS obj_ref
 AS $$
-    SELECT pg_class.oid, 'view'::varchar
+    SELECT pg_class.oid, 'view'::obj_type
     FROM pg_class
     JOIN pg_namespace ON pg_class.relnamespace = pg_namespace.oid
     WHERE pg_namespace.nspname = obj_schema AND pg_class.relname = obj_name
@@ -241,8 +241,8 @@ AS $$
     SELECT
         rwr_cl.oid,
         CASE rwr_cl.relkind
-            WHEN 'v' THEN 'view'
-            WHEN 'm' THEN 'materialized view'
+            WHEN 'v' THEN 'view'::obj_type
+            WHEN 'm' THEN 'materialized view'::obj_type
         END
     FROM pg_depend dep
     JOIN pg_rewrite rwr ON dep.objid = rwr.oid
@@ -272,7 +272,7 @@ CREATE OR REPLACE FUNCTION direct_function_relation_deps(oid)
 AS $$
 SELECT
         pg_proc.oid,
-        'function'::varchar
+        'function'::obj_type
 FROM pg_class
 JOIN pg_type ON pg_type.oid = pg_class.reltype
 JOIN pg_depend ON pg_depend.refobjid = pg_type.oid
