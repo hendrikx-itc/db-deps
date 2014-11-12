@@ -107,7 +107,7 @@ AS $$
     SELECT pg_class.oid, 'view'::dep_recurse.obj_type
     FROM pg_class
     JOIN pg_namespace ON pg_class.relnamespace = pg_namespace.oid
-    WHERE pg_namespace.nspname = obj_schema AND pg_class.relname = obj_name
+    WHERE pg_namespace.nspname = $1 AND pg_class.relname = $2
 $$ LANGUAGE sql STABLE;
 
 
