@@ -111,19 +111,6 @@ AS $$
 $$ LANGUAGE sql STABLE;
 
 
---CREATE OR REPLACE FUNCTION dep_recurse.function_ref(obj_schema name, obj_name name, signature name[])
---    RETURNS obj_ref
---AS $$
---SELECT array_agg(typname)
---FROM (
---   SELECT unnest(proargtypes) type_oid
---    FROM pg_proc
---) t
---JOIN pg_type ON pg_type.oid = t.type_oid
---JOIN pg_namespace ON pronamespace = pg_namespace.oid;
---$$ LANGUAGE sql STABLE;
-
-
 CREATE OR REPLACE FUNCTION dep_recurse.table_to_char(oid)
     RETURNS text
 AS $$
@@ -151,6 +138,25 @@ SELECT format('%I.%I', nspname, typname)
 FROM pg_type
 JOIN pg_namespace ON pg_namespace.oid = pg_type.typnamespace
 WHERE pg_type.oid = $1;
+$$ LANGUAGE sql STABLE;
+
+
+CREATE OR REPLACE FUNCTION dep_recurse.function_ref(obj_schema name, obj_name name, signature text[])
+    RETURNS dep_recurse.obj_ref
+AS $$
+SELECT (bar.oid, 'function')::dep_recurse.obj_ref
+FROM (
+	SELECT foo.oid, array_agg(dep_recurse.type_to_char(foo.t)) sig
+	FROM (
+		SELECT pg_proc.oid, unnest(pg_proc.proargtypes) t
+		FROM pg_proc
+		JOIN pg_namespace ON pg_namespace.oid = pg_proc.pronamespace
+		WHERE nspname = $1 AND proname = $2
+	) foo
+	JOIN pg_type ON foo.t = pg_type.oid
+	GROUP BY foo.oid
+) bar
+WHERE bar.sig = $3;
 $$ LANGUAGE sql STABLE;
 
 
