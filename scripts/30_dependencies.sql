@@ -213,7 +213,7 @@ CREATE OR REPLACE FUNCTION dep_recurse.owner_function_statement(oid)
     RETURNS varchar
 AS $$
 SELECT
-    format('ALTER FUNCTION %I.%I OWNER TO %s', nspname, proname, pg_authid.rolname)
+    format('ALTER FUNCTION %I.%I(%s) OWNER TO %s', nspname, proname, dep_recurse.function_signature_str($1), pg_authid.rolname)
 FROM pg_proc
 JOIN pg_namespace ON pg_namespace.oid = pg_proc.pronamespace
 JOIN pg_authid ON pg_authid.oid = proowner
