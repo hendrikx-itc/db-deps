@@ -371,9 +371,10 @@ WITH RECURSIVE dependencies(obj_ref, depth, path, cycle) AS (
     FROM dependencies d
     WHERE NOT cycle
 )
-SELECT obj_ref, depth
+SELECT obj_ref, max(depth)
 FROM dependencies
-GROUP BY obj_ref, depth;
+WHERE obj_ref IS NOT NULL
+GROUP BY obj_ref;
 $$ LANGUAGE sql STABLE;
 
 
