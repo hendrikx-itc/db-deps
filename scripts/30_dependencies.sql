@@ -100,6 +100,13 @@ WHERE c.oid = $1 AND d.description is NOT null;
 $$ LANGUAGE sql STABLE;
 
 
+CREATE OR REPLACE FUNCTION dep_recurse.table_ref(oid)
+    RETURNS dep_recurse.obj_ref
+AS $$
+    SELECT $1, 'table'::dep_recurse.obj_type
+$$ LANGUAGE sql IMMUTABLE;
+
+
 CREATE OR REPLACE FUNCTION dep_recurse.table_ref(obj_schema name, obj_name name)
     RETURNS dep_recurse.obj_ref
 AS $$
@@ -108,6 +115,13 @@ AS $$
     JOIN pg_namespace ON pg_class.relnamespace = pg_namespace.oid
     WHERE pg_namespace.nspname = $1 AND pg_class.relname = $2
 $$ LANGUAGE sql STABLE;
+
+
+CREATE OR REPLACE FUNCTION dep_recurse.view_ref(oid)
+    RETURNS dep_recurse.obj_ref
+AS $$
+    SELECT $1, 'view'::dep_recurse.obj_type
+$$ LANGUAGE sql IMMUTABLE;
 
 
 CREATE OR REPLACE FUNCTION dep_recurse.view_ref(obj_schema name, obj_name name)
@@ -148,6 +162,13 @@ FROM pg_type
 JOIN pg_namespace ON pg_namespace.oid = pg_type.typnamespace
 WHERE pg_type.oid = $1;
 $$ LANGUAGE sql STABLE;
+
+
+CREATE OR REPLACE FUNCTION dep_recurse.function_ref(oid)
+    RETURNS dep_recurse.obj_ref
+AS $$
+SELECT ($1, 'function')::dep_recurse.obj_ref
+$$ LANGUAGE sql IMMUTABLE;
 
 
 CREATE OR REPLACE FUNCTION dep_recurse.function_ref(obj_schema name, obj_name name, signature text[])
