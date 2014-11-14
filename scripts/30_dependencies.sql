@@ -274,6 +274,16 @@ AS $$
 $$ LANGUAGE sql STABLE;
 
 
+CREATE OR REPLACE FUNCTION dep_recurse.direct_table_relation_deps(oid)
+    RETURNS SETOF dep_recurse.obj_ref 
+AS $$
+    SELECT
+        inhrelid, 'table'::dep_recurse.obj_type
+    FROM pg_inherits
+    WHERE inhparent = $1;
+$$ LANGUAGE sql STABLE;
+
+
 CREATE OR REPLACE FUNCTION dep_recurse.direct_view_relation_deps(oid)
     RETURNS SETOF dep_recurse.obj_ref 
 AS $$
@@ -340,7 +350,9 @@ CREATE OR REPLACE FUNCTION dep_recurse.direct_relation_deps(oid)
 AS $$
 SELECT dep_recurse.direct_view_relation_deps($1)
 UNION ALL
-SELECT dep_recurse.direct_function_relation_deps($1);
+SELECT dep_recurse.direct_function_relation_deps($1)
+UNION ALL
+SELECT dep_recurse.direct_table_relation_deps($1);
 $$ LANGUAGE sql STABLE;
 
 COMMENT ON FUNCTION dep_recurse.direct_relation_deps(oid) IS
