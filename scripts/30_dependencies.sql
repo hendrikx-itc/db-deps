@@ -552,3 +552,48 @@ BEGIN
     RETURN $1;
 END;
 $$ LANGUAGE plpgsql VOLATILE SECURITY DEFINER;
+
+
+CREATE OR REPLACE FUNCTION dep_recurse.dependent_drop_statements(dep_recurse.obj_ref, exclude dep_recurse.obj_ref[])
+    RETURNS SETOF varchar
+AS $$
+    SELECT * FROM (
+        SELECT dep_recurse.drop_statement(d.obj)
+        FROM dep_recurse.deps($1) d
+        WHERE NOT d = ANY($2)
+        ORDER BY d.distance DESC
+    ) drop_statement
+    WHERE drop_statement IS NOT NULL;
+$$ LANGUAGE sql STABLE;
+
+
+CREATE OR REPLACE FUNCTION dep_recurse.dependent_create_statements(dep_recurse.obj_ref, exclude dep_recurse.obj_ref[])
+    RETURNS SETOF varchar
+AS $$
+    SELECT * FROM (
+        SELECT dep_recurse.creation_statements(d.obj)
+        FROM dep_recurse.deps($1) d
+        WHERE NOT d = ANY($2)
+        ORDER BY d.distance ASC
+    ) create_statement
+    WHERE create_statement IS NOT NULL;
+$$ LANGUAGE sql STABLE;
+
+
+CREATE OR REPLACE FUNCTION dep_recurse.alter(obj dep_recurse.obj_ref, changes varchar[], exclude dep_recurse.obj_ref[])
+    RETURNS dep_recurse.obj_ref
+AS $$
+DECLARE
+    drop_statements varchar[];
+    recreate_statements varchar[];
+BEGIN
+    SELECT array_agg(d) INTO drop_statements FROM dep_recurse.dependent_drop_statements($1, $3) d;
+    SELECT array_agg(c) INTO recreate_statements FROM dep_recurse.dependent_create_statements($1, $3) c;
+
+    PERFORM dep_recurse.execute(drop_statements);
+    PERFORM dep_recurse.execute(changes);
+    PERFORM dep_recurse.execute(recreate_statements);
+
+    RETURN $1;
+END;
+$$ LANGUAGE plpgsql VOLATILE SECURITY DEFINER;
