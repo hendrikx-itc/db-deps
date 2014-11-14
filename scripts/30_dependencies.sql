@@ -110,7 +110,8 @@ $$ LANGUAGE sql IMMUTABLE;
 CREATE OR REPLACE FUNCTION dep_recurse.table_ref(obj_schema name, obj_name name)
     RETURNS dep_recurse.obj_ref
 AS $$
-    SELECT pg_class.oid, 'table'::dep_recurse.obj_type
+    SELECT
+        dep_recurse.table_ref(pg_class.oid)
     FROM pg_class
     JOIN pg_namespace ON pg_class.relnamespace = pg_namespace.oid
     WHERE pg_namespace.nspname = $1 AND pg_class.relname = $2
@@ -127,7 +128,8 @@ $$ LANGUAGE sql IMMUTABLE;
 CREATE OR REPLACE FUNCTION dep_recurse.view_ref(obj_schema name, obj_name name)
     RETURNS dep_recurse.obj_ref
 AS $$
-    SELECT pg_class.oid, 'view'::dep_recurse.obj_type
+    SELECT
+        dep_recurse.view_ref(pg_class.oid)
     FROM pg_class
     JOIN pg_namespace ON pg_class.relnamespace = pg_namespace.oid
     WHERE pg_namespace.nspname = $1 AND pg_class.relname = $2
@@ -174,7 +176,8 @@ $$ LANGUAGE sql IMMUTABLE;
 CREATE OR REPLACE FUNCTION dep_recurse.function_ref(obj_schema name, obj_name name, signature text[])
     RETURNS dep_recurse.obj_ref
 AS $$
-SELECT (bar.oid, 'function')::dep_recurse.obj_ref
+SELECT
+    dep_recurse.function_ref(bar.oid)
 FROM (
 	SELECT foo.oid, array_agg(dep_recurse.type_to_char(foo.t)) sig
 	FROM (
@@ -351,8 +354,7 @@ CREATE OR REPLACE FUNCTION dep_recurse.direct_function_relation_deps(oid)
     RETURNS SETOF dep_recurse.obj_ref
 AS $$
 SELECT
-        pg_proc.oid,
-        'function'::dep_recurse.obj_type
+    dep_recurse.function_ref(pg_proc.oid)
 FROM pg_class
 JOIN pg_type ON pg_type.oid = pg_class.reltype
 JOIN pg_depend ON pg_depend.refobjid = pg_type.oid
