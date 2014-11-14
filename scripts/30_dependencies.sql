@@ -409,17 +409,23 @@ WITH RECURSIVE dependencies(obj_ref, depth, path, cycle) AS (
     SELECT
         dirdep AS obj_ref,
         1 AS depth,
-        ARRAY[dirdep.obj_id] AS path,
+        ARRAY[dirdep::text] AS path,
         false AS cycle
     FROM dep_recurse.direct_deps($1) dirdep
     UNION ALL
     SELECT
-        dep_recurse.direct_deps(d.obj_ref) AS obj_ref,
-        d.depth + 1 AS depth,
-        path || (d.obj_ref).obj_id AS path,
-        (d.obj_ref).obj_id = ANY(path) AS cycle
-    FROM dependencies d
-    WHERE NOT cycle
+        foo.obj_ref,
+        foo.depth + 1 AS depth,
+        foo.path || foo.obj_ref::text AS path,
+        foo.obj_ref::text = ANY(foo.path) AS cycle
+    FROM (
+        SELECT
+            dep_recurse.direct_deps(d.obj_ref) AS obj_ref,
+            d.depth,
+            d.path
+        FROM dependencies d
+        WHERE NOT cycle
+    ) foo
 )
 SELECT obj_ref, max(depth)
 FROM dependencies
