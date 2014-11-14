@@ -541,7 +541,6 @@ AS $$
 DECLARE
     drop_statements varchar[];
     recreate_statements varchar[];
-    tmp_deps dep_recurse.dep[];
 BEGIN
     SELECT array_agg(d) INTO drop_statements FROM dep_recurse.dependent_drop_statements($1) d;
     SELECT array_agg(c) INTO recreate_statements FROM dep_recurse.dependent_create_statements($1) c;
