@@ -1,3 +1,12 @@
+CREATE FUNCTION dep_recurse.to_oid(dep_recurse.obj_ref)
+    RETURNS oid
+AS $$
+    SELECT $1.obj_id;
+$$ LANGUAGE sql IMMUTABLE;
+
+CREATE CAST (dep_recurse.obj_ref AS oid) WITH FUNCTION dep_recurse.to_oid(dep_recurse.obj_ref);
+
+
 CREATE OR REPLACE FUNCTION dep_recurse.grant_view_statements(oid)
     RETURNS SETOF varchar
 AS $$
