@@ -492,14 +492,24 @@ $$ LANGUAGE sql STABLE;
 CREATE OR REPLACE FUNCTION dep_recurse.dependent_drop_statements(dep_recurse.obj_ref)
     RETURNS SETOF varchar
 AS $$
-    SELECT dep_recurse.drop_statement(d.obj) FROM dep_recurse.deps($1) d ORDER BY d.distance DESC;
+    SELECT * FROM (
+        SELECT dep_recurse.drop_statement(d.obj)
+        FROM dep_recurse.deps($1) d
+        ORDER BY d.distance DESC
+    ) drop_statement
+    WHERE drop_statement IS NOT NULL;
 $$ LANGUAGE sql STABLE;
 
 
 CREATE OR REPLACE FUNCTION dep_recurse.dependent_create_statements(dep_recurse.obj_ref)
     RETURNS SETOF varchar
 AS $$
-    SELECT dep_recurse.creation_statements(d.obj) FROM dep_recurse.deps($1) d ORDER BY d.distance ASC;
+    SELECT * FROM (
+        SELECT dep_recurse.creation_statements(d.obj)
+        FROM dep_recurse.deps($1) d
+        ORDER BY d.distance ASC
+    ) create_statement
+    WHERE create_statement IS NOT NULL;
 $$ LANGUAGE sql STABLE;
 
 
