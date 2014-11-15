@@ -529,7 +529,7 @@ BEGIN
         EXECUTE statement;
     END LOOP;
 END;
-$$ LANGUAGE plpgsql VOLATILE;
+$$ LANGUAGE plpgsql VOLATILE STRICT;
 
 COMMENT ON FUNCTION dep_recurse.execute(varchar[]) IS
 'execute a set of schema altering queries';
@@ -587,8 +587,13 @@ DECLARE
     drop_statements varchar[];
     recreate_statements varchar[];
 BEGIN
-    SELECT array_agg(d) INTO drop_statements FROM dep_recurse.dependent_drop_statements($1, $3) d;
-    SELECT array_agg(c) INTO recreate_statements FROM dep_recurse.dependent_create_statements($1, $3) c;
+    SELECT
+        array_agg(d) INTO drop_statements
+    FROM dep_recurse.dependent_drop_statements($1, $3) d;
+
+    SELECT
+        array_agg(c) INTO recreate_statements
+    FROM dep_recurse.dependent_create_statements($1, $3) c;
 
     PERFORM dep_recurse.execute(drop_statements);
     PERFORM dep_recurse.execute(changes);
