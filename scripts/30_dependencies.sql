@@ -391,6 +391,23 @@ COMMENT ON FUNCTION dep_recurse.direct_relation_deps(oid) IS
 'return set of references to objects that are directly dependent on the relation oid';
 
 
+CREATE OR REPLACE FUNCTION dep_recurse.direct_view_function_deps(oid)
+    RETURNS SETOF dep_recurse.obj_ref
+AS $$
+SELECT dep_recurse.view_ref(pg_rewrite.ev_class)
+FROM pg_depend
+JOIN pg_rewrite ON pg_depend.objid = pg_rewrite.oid
+WHERE refobjid = $1;
+$$ LANGUAGE sql STABLE;
+
+
+CREATE OR REPLACE FUNCTION dep_recurse.direct_function_deps(oid)
+    RETURNS SETOF dep_recurse.obj_ref
+AS $$
+SELECT dep_recurse.direct_view_function_deps($1);
+$$ LANGUAGE sql STABLE;
+
+
 CREATE OR REPLACE FUNCTION dep_recurse.direct_deps(dep_recurse.obj_ref)
     RETURNS SETOF dep_recurse.obj_ref
 AS $$
@@ -398,6 +415,8 @@ SELECT CASE $1.obj_type
 WHEN 'table' THEN dep_recurse.direct_relation_deps($1.obj_id)
 WHEN 'view' THEN dep_recurse.direct_relation_deps($1.obj_id)
 WHEN 'materialized view' THEN dep_recurse.direct_relation_deps($1.obj_id)
+WHEN 'function' THEN dep_recurse.direct_function_deps($1.obj_id)
+ELSE dep_recurse.raise_exception($1, 'not implemented for type ''' || $1.obj_type || '''')
 END;
 $$ LANGUAGE sql STABLE;
 
