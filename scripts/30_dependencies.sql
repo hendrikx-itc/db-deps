@@ -595,7 +595,7 @@ AS $$
     SELECT * FROM (
         SELECT dep_recurse.drop_statement(d.obj)
         FROM dep_recurse.deps($1) d
-        WHERE NOT d = ANY($2)
+        WHERE NOT d.obj = ANY($2)
         ORDER BY d.distance DESC
     ) drop_statement
     WHERE drop_statement IS NOT NULL;
@@ -608,7 +608,7 @@ AS $$
     SELECT * FROM (
         SELECT dep_recurse.creation_statements(d.obj)
         FROM dep_recurse.deps($1) d
-        WHERE NOT d = ANY($2)
+        WHERE NOT d.obj = ANY($2)
         ORDER BY d.distance ASC
     ) create_statement
     WHERE create_statement IS NOT NULL;
