@@ -354,7 +354,7 @@ AS $$
     SELECT dep_recurse.direct_view_relation_deps(pg_class.oid)
     FROM pg_class
     JOIN pg_namespace ON pg_class.relnamespace = pg_namespace.oid
-    WHERE pg_namespace.nspname = obj_schema AND pg_class.relname = obj_name
+    WHERE pg_namespace.nspname = $1 AND pg_class.relname = $2
 $$ LANGUAGE sql STABLE;
 
 COMMENT ON FUNCTION dep_recurse.direct_view_relation_deps(obj_schema name, obj_name name) IS
