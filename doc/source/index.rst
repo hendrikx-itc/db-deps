@@ -6,6 +6,12 @@
 Welcome to db-deps's documentation!
 ===================================
 
+The db-deps project provides functions for use in PostgreSQL projects with
+dynamically managed database objects. Specifically, it provides a means to
+edit database objects that require dropping and recreating of dependent
+objects, without manually defining the statements for this dependent object
+dropping and recreating.
+
 Contents:
 
 .. toctree::
