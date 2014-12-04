@@ -362,6 +362,9 @@ JOIN pg_proc ON pg_proc.oid = pg_depend.objid
 WHERE pg_depend.deptype = 'n' AND pg_class.oid = $1
 $$ LANGUAGE sql STABLE;
 
+COMMENT ON FUNCTION dep_recurse.direct_function_relation_deps(oid) IS
+'return set of functions that are directly dependent on the relation with id oid';
+
 
 CREATE OR REPLACE FUNCTION dep_recurse.direct_function_relation_deps(obj_schema name, obj_name name)
     RETURNS SETOF dep_recurse.obj_ref
@@ -374,7 +377,8 @@ WHERE relname = $2 AND cl_nsp.nspname = $1
 $$ LANGUAGE sql STABLE;
 
 COMMENT ON FUNCTION dep_recurse.direct_function_relation_deps(obj_schema name, obj_name name) IS
-'return set of functions that are directly dependent on the relation with name obj_name in schema obj_schema';
+'return set of functions that are directly dependent on the relation with name '
+'obj_name in schema obj_schema';
 
 
 CREATE OR REPLACE FUNCTION dep_recurse.direct_relation_deps(oid)
@@ -388,7 +392,8 @@ SELECT dep_recurse.direct_table_relation_deps($1);
 $$ LANGUAGE sql STABLE;
 
 COMMENT ON FUNCTION dep_recurse.direct_relation_deps(oid) IS
-'return set of references to objects that are directly dependent on the relation oid';
+'return set of references to objects that are directly dependent on the '
+'relation (pg_class) oid';
 
 
 CREATE OR REPLACE FUNCTION dep_recurse.direct_view_function_deps(oid)
