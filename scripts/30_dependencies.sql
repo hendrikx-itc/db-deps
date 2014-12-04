@@ -1,3 +1,14 @@
+CREATE FUNCTION dep_recurse.raise_exception(anyelement, text)
+    RETURNS anyelement
+AS $$
+BEGIN
+    RAISE EXCEPTION '%', $2;
+
+    RETURN $1;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+
 CREATE FUNCTION dep_recurse.to_oid(dep_recurse.obj_ref)
     RETURNS oid
 AS $$
