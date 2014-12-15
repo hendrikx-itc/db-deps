@@ -535,8 +535,11 @@ CREATE OR REPLACE FUNCTION dep_recurse.dependent_drop_statements(dep_recurse.obj
 AS $$
     SELECT * FROM (
         SELECT dep_recurse.drop_statement(d.obj)
-        FROM dep_recurse.deps($1) d
-        ORDER BY d.distance DESC
+        FROM (
+            SELECT *
+            FROM dep_recurse.deps($1) d
+            ORDER BY d.distance DESC
+        ) d
     ) drop_statement
     WHERE drop_statement IS NOT NULL;
 $$ LANGUAGE sql STABLE;
@@ -547,8 +550,11 @@ CREATE OR REPLACE FUNCTION dep_recurse.dependent_create_statements(dep_recurse.o
 AS $$
     SELECT * FROM (
         SELECT dep_recurse.creation_statements(d.obj)
-        FROM dep_recurse.deps($1) d
-        ORDER BY d.distance ASC
+        FROM (
+            SELECT *
+            FROM dep_recurse.deps($1) d
+            ORDER BY d.distance ASC
+        ) d
     ) create_statement
     WHERE create_statement IS NOT NULL;
 $$ LANGUAGE sql STABLE;
@@ -594,9 +600,12 @@ CREATE OR REPLACE FUNCTION dep_recurse.dependent_drop_statements(dep_recurse.obj
 AS $$
     SELECT * FROM (
         SELECT dep_recurse.drop_statement(d.obj)
-        FROM dep_recurse.deps($1) d
-        WHERE NOT d.obj = ANY($2)
-        ORDER BY d.distance DESC
+        FROM (
+            SELECT *
+            FROM dep_recurse.deps($1) d
+            WHERE NOT d.obj = ANY($2)
+            ORDER BY d.distance DESC
+        ) d
     ) drop_statement
     WHERE drop_statement IS NOT NULL;
 $$ LANGUAGE sql STABLE;
@@ -607,9 +616,12 @@ CREATE OR REPLACE FUNCTION dep_recurse.dependent_create_statements(dep_recurse.o
 AS $$
     SELECT * FROM (
         SELECT dep_recurse.creation_statements(d.obj)
-        FROM dep_recurse.deps($1) d
-        WHERE NOT d.obj = ANY($2)
-        ORDER BY d.distance ASC
+        FROM (
+            SELECT *
+            FROM dep_recurse.deps($1) d
+            WHERE NOT d.obj = ANY($2)
+            ORDER BY d.distance ASC
+        ) d
     ) create_statement
     WHERE create_statement IS NOT NULL;
 $$ LANGUAGE sql STABLE;
