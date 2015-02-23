@@ -12,7 +12,13 @@ CREATE TYPE dep_recurse.obj_ref AS (
 );
 
 
-CREATE TYPE dep_recurse.dep AS (
+CREATE TYPE dep_recurse.dependent AS (
+    obj dep_recurse.obj_ref,
+    distance integer
+);
+
+
+CREATE TYPE dep_recurse.dependency AS (
     obj dep_recurse.obj_ref,
     distance integer
 );
