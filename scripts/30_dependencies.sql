@@ -579,9 +579,11 @@ GROUP BY pg_rewrite.ev_class, pg_depend.refobjid, pg_class.relkind;
 CREATE FUNCTION dep_recurse.direct_view_relation_dependencies(oid)
     RETURNS SETOF dep_recurse.obj_ref
 AS $$
-    SELECT relation_oid, obj_type
+    SELECT
+        obj_id,
+        obj_type
     FROM dep_recurse.view_relation_dependencies
-    WHERE ref_oid = $1;
+    WHERE ref_obj_id = $1;
 $$ LANGUAGE sql STABLE;
 
 
@@ -632,9 +634,11 @@ FROM dep_recurse.relation_dependencies;
 CREATE FUNCTION dep_recurse.direct_dependencies(dep_recurse.obj_ref)
     RETURNS SETOF dep_recurse.obj_ref
 AS $$
-SELECT obj_id, obj_type
+SELECT
+    obj_id,
+    obj_type
 FROM dep_recurse.direct_dependencies
-WHERE ref_oid = $1.obj_id;
+WHERE ref_obj_id = $1.obj_id;
 $$ LANGUAGE sql STABLE;
 
 
