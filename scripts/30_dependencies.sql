@@ -546,15 +546,24 @@ WHERE ref_oid = $1.obj_id;
 $$ LANGUAGE sql STABLE;
 
 
-CREATE VIEW dep_recurse.view_relation_dependencies AS
+CREATE FUNCTION dep_recurse.relkind_to_obj_type("char")
+    RETURNS dep_recurse.obj_type
+AS $$
 SELECT
-    pg_rewrite.ev_class ref_oid,
-    pg_depend.refobjid relation_oid,
-    CASE pg_class.relkind
+    CASE $1
         WHEN 'r' THEN 'table'::dep_recurse.obj_type
         WHEN 'v' THEN 'view'::dep_recurse.obj_type
         WHEN 'm' THEN 'materialized view'::dep_recurse.obj_type
-    END AS obj_type
+    END;
+$$ LANGUAGE sql IMMUTABLE;
+
+
+CREATE VIEW dep_recurse.view_relation_dependencies AS
+SELECT
+    pg_rewrite.ev_class ref_obj_id,
+    'view'::dep_recurse.obj_type ref_obj_type,
+    pg_depend.refobjid obj_id,
+    dep_recurse.relkind_to_obj_type(pg_class.relkind) AS obj_type
 FROM pg_rewrite
 JOIN pg_depend ON
     pg_depend.objid = pg_rewrite.oid
@@ -577,7 +586,7 @@ $$ LANGUAGE sql STABLE;
 
 
 CREATE VIEW dep_recurse.relation_dependencies AS
-SELECT ref_oid, relation_oid, obj_type
+SELECT ref_obj_id, ref_obj_type, obj_id, obj_type
 FROM dep_recurse.view_relation_dependencies;
 
 
@@ -590,7 +599,10 @@ $$ LANGUAGE sql STABLE;
 
 CREATE VIEW dep_recurse.direct_function_dependencies AS
 SELECT
-    pg_proc.oid function_oid, pg_class.oid class_oid
+    pg_proc.oid ref_obj_id,
+    'function'::dep_recurse.obj_type ref_obj_type,
+    pg_class.oid obj_id,
+    dep_recurse.relkind_to_obj_type(pg_class.relkind) obj_type
 FROM pg_class
 JOIN pg_type ON pg_type.oid = pg_class.reltype
 JOIN pg_depend ON pg_depend.refobjid = pg_type.oid
@@ -598,29 +610,21 @@ JOIN pg_proc ON pg_proc.oid = pg_depend.objid
 WHERE pg_depend.deptype = 'n';
 
 
-CREATE FUNCTION dep_recurse.direct_function_dependencies(oid)
-    RETURNS SETOF dep_recurse.obj_ref
-AS $$
-SELECT
-    dep_recurse.table_ref(class_oid)
-FROM dep_recurse.direct_function_dependencies
-WHERE function_oid = $1
-$$ LANGUAGE sql STABLE;
-
-
 CREATE VIEW dep_recurse.direct_dependencies AS
 
 SELECT
-    function_oid ref_oid,
-    class_oid obj_id,
-    'table'::dep_recurse.obj_type obj_type
+    ref_obj_id,
+    ref_obj_type,
+    obj_id,
+    obj_type
 FROM dep_recurse.direct_function_dependencies
 
 UNION ALL
 
 SELECT
-    ref_oid ref_oid,
-    relation_oid obj_id,
+    ref_obj_id,
+    ref_obj_type,
+    obj_id,
     obj_type
 FROM dep_recurse.relation_dependencies;
 
@@ -666,35 +670,42 @@ GROUP BY obj_ref;
 $$ LANGUAGE sql STABLE;
 
 
+CREATE VIEW dep_recurse.dependency_tree AS
+WITH RECURSIVE dependencies(root_obj_id, root_obj_type, obj_id, obj_type, depth, path, cycle) AS (
+    SELECT
+        dirdep.ref_obj_id root_obj_id,
+        dirdep.ref_obj_type root_obj_type,
+        dirdep.obj_id,
+        dirdep.obj_type,
+        1 AS depth,
+        ARRAY[dirdep.obj_id] AS path,
+        false AS cycle
+    FROM dep_recurse.direct_dependencies dirdep
+    UNION ALL
+    SELECT
+        d.root_obj_id,
+        d.root_obj_type,
+        direct_dependencies.obj_id,
+        direct_dependencies.obj_type,
+        d.depth + 1 AS depth,
+        d.path || direct_dependencies.obj_id AS path,
+        direct_dependencies.obj_id = ANY(d.path) AS cycle
+    FROM dependencies d
+    JOIN dep_recurse.direct_dependencies ON direct_dependencies.ref_obj_id = d.obj_id
+    WHERE NOT cycle
+)
+SELECT root_obj_id, root_obj_type, (obj_id, obj_type)::dep_recurse.obj_ref obj_ref, max(depth) depth
+FROM dependencies
+WHERE obj_id IS NOT NULL
+GROUP BY root_obj_id, root_obj_type, obj_id, obj_type;
+
+
 CREATE FUNCTION dep_recurse.dependencies(dep_recurse.obj_ref)
     RETURNS SETOF dep_recurse.dependency
 AS $$
-WITH RECURSIVE dependencies(obj_ref, depth, path, cycle) AS (
-    SELECT
-        dirdep AS obj_ref,
-        1 AS depth,
-        ARRAY[dirdep::text] AS path,
-        false AS cycle
-    FROM dep_recurse.direct_dependencies($1) dirdep
-    UNION ALL
-    SELECT
-        foo.obj_ref,
-        foo.depth + 1 AS depth,
-        foo.path || foo.obj_ref::text AS path,
-        foo.obj_ref::text = ANY(foo.path) AS cycle
-    FROM (
-        SELECT
-            dep_recurse.direct_dependencies(d.obj_ref) AS obj_ref,
-            d.depth,
-            d.path
-        FROM dependencies d
-        WHERE NOT cycle
-    ) foo
-)
-SELECT obj_ref, max(depth)
-FROM dependencies
-WHERE obj_ref IS NOT NULL
-GROUP BY obj_ref;
+SELECT obj_ref, depth
+FROM dep_recurse.dependency_tree
+WHERE root_obj_id = $1.obj_id;
 $$ LANGUAGE sql STABLE;
 
 
