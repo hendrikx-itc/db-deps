@@ -1,25 +1,15 @@
-CREATE FUNCTION dep_recurse.raise_exception(anyelement, text)
-    RETURNS anyelement
-AS $$
-BEGIN
-    RAISE EXCEPTION '%', $2;
-
-    RETURN $1;
-END;
-$$ LANGUAGE plpgsql IMMUTABLE;
-
-
 CREATE FUNCTION dep_recurse.to_oid(dep_recurse.obj_ref)
     RETURNS oid
 AS $$
     SELECT $1.obj_id;
 $$ LANGUAGE sql IMMUTABLE;
 
-CREATE CAST (dep_recurse.obj_ref AS oid) WITH FUNCTION dep_recurse.to_oid(dep_recurse.obj_ref);
+CREATE CAST (dep_recurse.obj_ref AS oid)
+WITH FUNCTION dep_recurse.to_oid(dep_recurse.obj_ref);
 
 
 CREATE FUNCTION dep_recurse.grant_view_statements(oid)
-    RETURNS SETOF varchar
+    RETURNS SETOF text
 AS $$
 SELECT
     format('GRANT %s ON %I.%I TO %s;', privilege_type, table_schema, table_name, grantee)
@@ -44,10 +34,15 @@ $$ LANGUAGE sql STABLE;
 
 
 CREATE FUNCTION dep_recurse.create_view_statement(oid)
-    RETURNS varchar
+    RETURNS text
 AS $$
 SELECT
-    format('CREATE VIEW %I.%I AS %s', pg_namespace.nspname, pg_class.relname, pg_get_viewdef($1))
+    format(
+        'CREATE VIEW %I.%I AS %s',
+        pg_namespace.nspname,
+        pg_class.relname,
+        pg_get_viewdef($1)
+    )
 FROM pg_class
 JOIN pg_namespace ON pg_namespace.oid = pg_class.relnamespace
 WHERE pg_class.oid = $1;
@@ -55,7 +50,7 @@ $$ LANGUAGE sql STABLE;
 
 
 CREATE FUNCTION dep_recurse.view_drop_statement(oid)
-    RETURNS SETOF varchar
+    RETURNS SETOF text
 AS $$
 SELECT
     format('DROP VIEW %I.%I', pg_namespace.nspname, pg_class.relname)
@@ -65,8 +60,9 @@ WHERE pg_class.oid = $1;
 $$ LANGUAGE sql STABLE;
 
 
-CREATE FUNCTION dep_recurse.create_materialized_view_statement(obj_schema name, obj_name name)
-    RETURNS varchar
+CREATE FUNCTION dep_recurse.create_materialized_view_statement(
+        obj_schema name, obj_name name)
+    RETURNS text
 AS $$
 SELECT
     format('CREATE MATERIALIZED VIEW %I.%I AS %s', $1, $2, definition)
@@ -76,10 +72,14 @@ $$ LANGUAGE sql STABLE;
 
 
 CREATE FUNCTION dep_recurse.materialized_view_drop_statement(oid)
-    RETURNS SETOF varchar
+    RETURNS SETOF text
 AS $$
 SELECT
-    format('DROP MATERIALIZED VIEW %I.%I', pg_namespace.nspname, pg_class.relname)
+    format(
+        'DROP MATERIALIZED VIEW %I.%I',
+        pg_namespace.nspname,
+        pg_class.relname
+    )
 FROM pg_class
 JOIN pg_namespace ON pg_namespace.oid = pg_class.relnamespace
 WHERE pg_class.oid = $1;
@@ -87,7 +87,7 @@ $$ LANGUAGE sql STABLE;
 
 
 CREATE FUNCTION dep_recurse.comment_view_statement(oid)
-    RETURNS varchar
+    RETURNS text
 AS $$
 SELECT
     format('COMMENT ON VIEW %I.%I IS %L;', n.nspname, c.relname, d.description)
@@ -99,10 +99,16 @@ $$ LANGUAGE sql STABLE;
 
 
 CREATE FUNCTION dep_recurse.comment_column_statements(oid)
-    RETURNS SETOF varchar
+    RETURNS SETOF text
 AS $$
 SELECT
-    format('COMMENT ON COLUMN %I.%I.%I IS %L;', n.nspname, c.relname, a.attname, d.description)
+    format(
+        'COMMENT ON COLUMN %I.%I.%I IS %L;',
+        n.nspname,
+        c.relname,
+        a.attname,
+        d.description
+    )
 FROM pg_class c
 JOIN pg_attribute a ON c.oid = a.attrelid
 JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -184,7 +190,8 @@ SELECT ($1, 'function')::dep_recurse.obj_ref
 $$ LANGUAGE sql IMMUTABLE;
 
 
-CREATE FUNCTION dep_recurse.function_ref(obj_schema name, obj_name name, signature text[])
+CREATE FUNCTION dep_recurse.function_ref(
+        obj_schema name, obj_name name, signature text[])
     RETURNS dep_recurse.obj_ref
 AS $$
 SELECT
@@ -229,7 +236,13 @@ $$ LANGUAGE sql STABLE;
 CREATE FUNCTION dep_recurse.function_to_char(oid)
     RETURNS text
 AS $$
-SELECT format('%I.%I(%s)', nspname, proname, dep_recurse.function_signature_str($1))
+SELECT
+    format(
+        '%I.%I(%s)',
+        nspname,
+        proname,
+        dep_recurse.function_signature_str($1)
+    )
 FROM pg_proc
 JOIN pg_namespace ON pronamespace = pg_namespace.oid
 WHERE pg_proc.oid = $1;
@@ -247,7 +260,8 @@ WHEN 'function' THEN dep_recurse.function_to_char($1.obj_id)
 END;
 $$ LANGUAGE sql STABLE;
 
-CREATE CAST (dep_recurse.obj_ref AS text) WITH FUNCTION dep_recurse.to_char(dep_recurse.obj_ref);
+CREATE CAST (dep_recurse.obj_ref AS text)
+WITH FUNCTION dep_recurse.to_char(dep_recurse.obj_ref);
 
 
 CREATE FUNCTION dep_recurse.to_char(dep_recurse.dependent)
@@ -256,7 +270,8 @@ AS $$
 SELECT $1.obj::text;
 $$ LANGUAGE sql STABLE;
 
-CREATE CAST (dep_recurse.dependent AS text) WITH FUNCTION dep_recurse.to_char(dep_recurse.dependent);
+CREATE CAST (dep_recurse.dependent AS text)
+WITH FUNCTION dep_recurse.to_char(dep_recurse.dependent);
 
 
 CREATE FUNCTION dep_recurse.to_char(dep_recurse.dependency)
@@ -265,14 +280,20 @@ AS $$
 SELECT $1.obj::text;
 $$ LANGUAGE sql STABLE;
 
-CREATE CAST (dep_recurse.dependency AS text) WITH FUNCTION dep_recurse.to_char(dep_recurse.dependency);
+CREATE CAST (dep_recurse.dependency AS text)
+WITH FUNCTION dep_recurse.to_char(dep_recurse.dependency);
 
 
 CREATE FUNCTION dep_recurse.owner_function_statement(oid)
-    RETURNS varchar
+    RETURNS text
 AS $$
-SELECT
-    format('ALTER FUNCTION %I.%I(%s) OWNER TO %s', nspname, proname, dep_recurse.function_signature_str($1), pg_authid.rolname)
+SELECT format(
+    'ALTER FUNCTION %I.%I(%s) OWNER TO %s',
+    nspname,
+    proname,
+    dep_recurse.function_signature_str($1),
+    pg_authid.rolname
+)
 FROM pg_proc
 JOIN pg_namespace ON pg_namespace.oid = pg_proc.pronamespace
 JOIN pg_authid ON pg_authid.oid = proowner
@@ -281,10 +302,14 @@ $$ LANGUAGE sql STABLE;
 
 
 CREATE FUNCTION dep_recurse.function_drop_statement(oid)
-    RETURNS varchar
+    RETURNS text
 AS $$
-SELECT
-    format('DROP FUNCTION %I.%I(%s)', nspname, proname, dep_recurse.function_signature_str($1))
+SELECT format(
+    'DROP FUNCTION %I.%I(%s)',
+    nspname,
+    proname,
+    dep_recurse.function_signature_str($1)
+)
 FROM pg_proc
 JOIN pg_namespace ON pg_namespace.oid = pg_proc.pronamespace
 WHERE pg_proc.oid = $1;
@@ -292,10 +317,16 @@ $$ LANGUAGE sql STABLE;
 
 
 CREATE FUNCTION dep_recurse.grant_function_statements(oid)
-    RETURNS SETOF varchar
+    RETURNS SETOF text
 AS $$
-    SELECT
-        format('GRANT %s ON FUNCTION %I.%I(%s) TO %s', c.privilege_type, nspname, proname, dep_recurse.function_signature_str($1), grantee.rolname)
+    SELECT format(
+        'GRANT %s ON FUNCTION %I.%I(%s) TO %s',
+        c.privilege_type,
+        nspname,
+        proname,
+        dep_recurse.function_signature_str($1),
+        grantee.rolname
+    )
     FROM (
         SELECT
             (int.acl).grantee,
@@ -327,88 +358,137 @@ AS $$
 $$ LANGUAGE sql STABLE;
 
 
+CREATE VIEW dep_recurse.table_relation_dependents AS
+SELECT
+    inhrelid child_relation_oid,
+    inhparent parent_relation_oid
+FROM pg_inherits;
+
+
 CREATE FUNCTION dep_recurse.direct_table_relation_dependents(oid)
     RETURNS SETOF dep_recurse.obj_ref
 AS $$
     SELECT
-        inhrelid, 'table'::dep_recurse.obj_type
-    FROM pg_inherits
-    WHERE inhparent = $1;
+        child_relation_oid,
+        'table'::dep_recurse.obj_type
+    FROM dep_recurse.table_relation_dependents
+    WHERE parent_relation_oid = $1;
 $$ LANGUAGE sql STABLE;
+
+
+CREATE VIEW dep_recurse.view_relation_dependents AS
+SELECT
+    rwr_cl.oid view_oid,
+    dep.refobjid relation_oid
+FROM pg_depend dep
+JOIN pg_rewrite rwr ON dep.objid = rwr.oid
+JOIN pg_class rwr_cl ON rwr_cl.oid = rwr.ev_class AND rwr_cl.relkind = 'v'
+WHERE
+    dep.deptype = 'n'
+    AND
+    dep.classid = 'pg_rewrite'::regclass
+    AND
+    rwr_cl.oid != dep.refobjid
+GROUP BY rwr_cl.oid, dep.refobjid;
+
+
+CREATE VIEW dep_recurse.materialized_view_relation_dependents AS
+SELECT
+    rwr_cl.oid view_oid,
+    dep.refobjid relation_oid
+FROM pg_depend dep
+JOIN pg_rewrite rwr ON dep.objid = rwr.oid
+JOIN pg_class rwr_cl ON rwr_cl.oid = rwr.ev_class AND rwr_cl.relkind = 'm'
+WHERE
+    dep.deptype = 'n'
+    AND
+    dep.classid = 'pg_rewrite'::regclass
+    AND
+    rwr_cl.oid != dep.refobjid
+GROUP BY rwr_cl.oid, dep.refobjid;
 
 
 CREATE FUNCTION dep_recurse.direct_view_relation_dependents(oid)
     RETURNS SETOF dep_recurse.obj_ref
 AS $$
     SELECT
-        rwr_cl.oid,
-        CASE rwr_cl.relkind
-            WHEN 'v' THEN 'view'::dep_recurse.obj_type
-            WHEN 'm' THEN 'materialized view'::dep_recurse.obj_type
-        END
-    FROM pg_depend dep
-    JOIN pg_rewrite rwr ON dep.objid = rwr.oid
-    JOIN pg_class rwr_cl ON rwr_cl.oid = rwr.ev_class
-    WHERE dep.deptype = 'n'
-    AND dep.classid = 'pg_rewrite'::regclass
-    AND rwr_cl.oid != $1
-    AND dep.refobjid = $1
-    GROUP BY rwr_cl.oid, rwr_cl.relkind
+        view_oid,
+        'view'::dep_recurse.obj_type
+    FROM
+        dep_recurse.view_relation_dependents
+    WHERE
+        relation_oid = $1
+
+    UNION ALL
+
+    SELECT
+        view_oid,
+        'materialized view'::dep_recurse.obj_type
+    FROM
+        dep_recurse.materialized_view_relation_dependents
+    WHERE
+        relation_oid = $1
 $$ LANGUAGE sql STABLE;
 
 
-CREATE FUNCTION dep_recurse.direct_view_relation_dependents(obj_schema name, obj_name name)
-    RETURNS SETOF dep_recurse.obj_ref
-AS $$
-    SELECT dep_recurse.direct_view_relation_dependents(pg_class.oid)
-    FROM pg_class
-    JOIN pg_namespace ON pg_class.relnamespace = pg_namespace.oid
-    WHERE pg_namespace.nspname = $1 AND pg_class.relname = $2
-$$ LANGUAGE sql STABLE;
-
-COMMENT ON FUNCTION dep_recurse.direct_view_relation_dependents(obj_schema name, obj_name name) IS
-'return set of views that are directly dependent on the relation with name obj_name in schema obj_schema';
+CREATE VIEW dep_recurse.function_relation_dependents AS
+SELECT
+    pg_class.oid relation_oid,
+    pg_proc.oid function_oid
+FROM pg_class
+JOIN pg_type ON pg_type.oid = pg_class.reltype
+JOIN pg_depend ON pg_depend.refobjid = pg_type.oid
+JOIN pg_proc ON pg_proc.oid = pg_depend.objid
+WHERE pg_depend.deptype = 'n';
 
 
 CREATE FUNCTION dep_recurse.direct_function_relation_dependents(oid)
     RETURNS SETOF dep_recurse.obj_ref
 AS $$
 SELECT
-    dep_recurse.function_ref(pg_proc.oid)
-FROM pg_class
-JOIN pg_type ON pg_type.oid = pg_class.reltype
-JOIN pg_depend ON pg_depend.refobjid = pg_type.oid
-JOIN pg_proc ON pg_proc.oid = pg_depend.objid
-WHERE pg_depend.deptype = 'n' AND pg_class.oid = $1
+    dep_recurse.function_ref(function_oid)
+FROM
+    dep_recurse.function_relation_dependents
+WHERE
+    relation_oid = $1
 $$ LANGUAGE sql STABLE;
 
 COMMENT ON FUNCTION dep_recurse.direct_function_relation_dependents(oid) IS
 'return set of functions that are directly dependent on the relation with id oid';
 
 
-CREATE FUNCTION dep_recurse.direct_function_relation_dependents(obj_schema name, obj_name name)
-    RETURNS SETOF dep_recurse.obj_ref
-AS $$
+CREATE VIEW dep_recurse.relation_dependents AS
 SELECT
-    dep_recurse.direct_function_relation_dependents(pg_class.oid)
-FROM pg_class
-JOIN pg_namespace cl_nsp ON pg_class.relnamespace = cl_nsp.oid
-WHERE relname = $2 AND cl_nsp.nspname = $1
-$$ LANGUAGE sql STABLE;
-
-COMMENT ON FUNCTION dep_recurse.direct_function_relation_dependents(obj_schema name, obj_name name) IS
-'return set of functions that are directly dependent on the relation with name '
-'obj_name in schema obj_schema';
+    relation_oid relation_oid,
+    view_oid obj_id,
+    'view'::dep_recurse.obj_type
+FROM dep_recurse.view_relation_dependents
+UNION ALL
+SELECT
+    relation_oid relation_oid,
+    view_oid obj_id,
+    'materialized view'::dep_recurse.obj_type
+FROM dep_recurse.materialized_view_relation_dependents
+UNION ALL
+SELECT
+    relation_oid relation_oid,
+    function_oid obj_id,
+    'function'::dep_recurse.obj_type
+FROM dep_recurse.function_relation_dependents
+UNION ALL
+SELECT
+    parent_relation_oid relation_oid,
+    child_relation_oid obj_id,
+    'table'::dep_recurse.obj_type
+FROM dep_recurse.table_relation_dependents;
 
 
 CREATE FUNCTION dep_recurse.direct_relation_dependents(oid)
     RETURNS SETOF dep_recurse.obj_ref
 AS $$
-SELECT dep_recurse.direct_view_relation_dependents($1)
-UNION ALL
-SELECT dep_recurse.direct_function_relation_dependents($1)
-UNION ALL
-SELECT dep_recurse.direct_table_relation_dependents($1);
+SELECT obj_id, obj_type
+FROM dep_recurse.relation_dependents
+WHERE relation_oid = $1;
 $$ LANGUAGE sql STABLE;
 
 COMMENT ON FUNCTION dep_recurse.direct_relation_dependents(oid) IS
@@ -416,13 +496,20 @@ COMMENT ON FUNCTION dep_recurse.direct_relation_dependents(oid) IS
 'relation (pg_class) oid';
 
 
+CREATE VIEW dep_recurse.view_function_dependents AS
+SELECT
+    pg_rewrite.ev_class view_oid,
+    refobjid function_oid
+FROM pg_depend
+JOIN pg_rewrite ON pg_depend.objid = pg_rewrite.oid;
+
+
 CREATE FUNCTION dep_recurse.direct_view_function_dependents(oid)
     RETURNS SETOF dep_recurse.obj_ref
 AS $$
-SELECT dep_recurse.view_ref(pg_rewrite.ev_class)
-FROM pg_depend
-JOIN pg_rewrite ON pg_depend.objid = pg_rewrite.oid
-WHERE refobjid = $1;
+SELECT dep_recurse.view_ref(view_oid)
+FROM dep_recurse.view_function_dependents
+WHERE function_oid = $1;
 $$ LANGUAGE sql STABLE;
 
 
@@ -433,39 +520,65 @@ SELECT dep_recurse.direct_view_function_dependents($1);
 $$ LANGUAGE sql STABLE;
 
 
+CREATE VIEW dep_recurse.dependents AS
+
+SELECT
+    relation_oid ref_oid,
+    obj_id,
+    obj_type
+FROM dep_recurse.relation_dependents
+
+UNION -- prevent potential duplicates
+
+SELECT
+    function_oid ref_oid,
+    view_oid obj_id,
+    'view'::dep_recurse.obj_type
+FROM dep_recurse.view_function_dependents;
+
+
 CREATE FUNCTION dep_recurse.direct_dependents(dep_recurse.obj_ref)
     RETURNS SETOF dep_recurse.obj_ref
 AS $$
-SELECT CASE $1.obj_type
-WHEN 'table' THEN dep_recurse.direct_relation_dependents($1.obj_id)
-WHEN 'view' THEN dep_recurse.direct_relation_dependents($1.obj_id)
-WHEN 'materialized view' THEN dep_recurse.direct_relation_dependents($1.obj_id)
-WHEN 'function' THEN dep_recurse.direct_function_dependents($1.obj_id)
-ELSE dep_recurse.raise_exception($1, 'not implemented for type ''' || $1.obj_type || '''')
-END;
+SELECT obj_id, obj_type
+FROM dep_recurse.dependents
+WHERE ref_oid = $1.obj_id;
 $$ LANGUAGE sql STABLE;
+
+
+CREATE VIEW dep_recurse.view_relation_dependencies AS
+SELECT
+    pg_rewrite.ev_class ref_oid,
+    pg_depend.refobjid relation_oid,
+    CASE pg_class.relkind
+        WHEN 'r' THEN 'table'::dep_recurse.obj_type
+        WHEN 'v' THEN 'view'::dep_recurse.obj_type
+        WHEN 'm' THEN 'materialized view'::dep_recurse.obj_type
+    END AS obj_type
+FROM pg_rewrite
+JOIN pg_depend ON
+    pg_depend.objid = pg_rewrite.oid
+    AND
+    pg_depend.deptype = 'n'
+JOIN pg_class ON
+    pg_class.oid = pg_depend.refobjid
+WHERE
+    pg_depend.refobjid <> pg_rewrite.ev_class
+GROUP BY pg_rewrite.ev_class, pg_depend.refobjid, pg_class.relkind;
 
 
 CREATE FUNCTION dep_recurse.direct_view_relation_dependencies(oid)
     RETURNS SETOF dep_recurse.obj_ref
 AS $$
-    SELECT
-        pg_depend.refobjid,
-        CASE pg_class.relkind
-            WHEN 'r' THEN 'table'::dep_recurse.obj_type
-            WHEN 'v' THEN 'view'::dep_recurse.obj_type
-            WHEN 'm' THEN 'materialized view'::dep_recurse.obj_type
-        END
-    FROM pg_rewrite
-    JOIN pg_depend ON
-        pg_depend.objid = pg_rewrite.oid
-        AND
-        pg_depend.deptype = 'n'
-    JOIN pg_class ON
-        pg_class.oid = pg_depend.refobjid
-    WHERE pg_rewrite.ev_class = $1 AND pg_depend.refobjid <> $1
-    GROUP BY pg_depend.refobjid, pg_class.relkind;
+    SELECT relation_oid, obj_type
+    FROM dep_recurse.view_relation_dependencies
+    WHERE ref_oid = $1;
 $$ LANGUAGE sql STABLE;
+
+
+CREATE VIEW dep_recurse.relation_dependencies AS
+SELECT ref_oid, relation_oid, obj_type
+FROM dep_recurse.view_relation_dependencies;
 
 
 CREATE FUNCTION dep_recurse.direct_relation_dependencies(oid)
@@ -475,34 +588,49 @@ SELECT dep_recurse.direct_view_relation_dependencies($1);
 $$ LANGUAGE sql STABLE;
 
 
-CREATE FUNCTION dep_recurse.direct_function_dependencies(oid)
-    RETURNS SETOF dep_recurse.obj_ref
-AS $$
+CREATE VIEW dep_recurse.direct_function_dependencies AS
 SELECT
-    dep_recurse.table_ref(pg_class.oid)
+    pg_proc.oid function_oid, pg_class.oid class_oid
 FROM pg_class
 JOIN pg_type ON pg_type.oid = pg_class.reltype
 JOIN pg_depend ON pg_depend.refobjid = pg_type.oid
 JOIN pg_proc ON pg_proc.oid = pg_depend.objid
-WHERE pg_depend.deptype = 'n' AND pg_proc.oid = $1
+WHERE pg_depend.deptype = 'n';
+
+
+CREATE FUNCTION dep_recurse.direct_function_dependencies(oid)
+    RETURNS SETOF dep_recurse.obj_ref
+AS $$
+SELECT
+    dep_recurse.table_ref(class_oid)
+FROM dep_recurse.direct_function_dependencies
+WHERE function_oid = $1
 $$ LANGUAGE sql STABLE;
+
+
+CREATE VIEW dep_recurse.direct_dependencies AS
+
+SELECT
+    function_oid ref_oid,
+    class_oid obj_id,
+    'table'::dep_recurse.obj_type obj_type
+FROM dep_recurse.direct_function_dependencies
+
+UNION ALL
+
+SELECT
+    ref_oid ref_oid,
+    relation_oid obj_id,
+    obj_type
+FROM dep_recurse.relation_dependencies;
 
 
 CREATE FUNCTION dep_recurse.direct_dependencies(dep_recurse.obj_ref)
     RETURNS SETOF dep_recurse.obj_ref
 AS $$
-SELECT CASE $1.obj_type
-WHEN 'table' THEN
-    dep_recurse.direct_relation_dependencies($1.obj_id)
-WHEN 'view' THEN
-    dep_recurse.direct_relation_dependencies($1.obj_id)
-WHEN 'materialized view' THEN
-    dep_recurse.direct_relation_dependencies($1.obj_id)
-WHEN 'function' THEN
-    dep_recurse.direct_function_dependencies($1.obj_id)
-ELSE
-    dep_recurse.raise_exception($1, 'not implemented for type ''' || $1.obj_type || '''')
-END;
+SELECT obj_id, obj_type
+FROM dep_recurse.direct_dependencies
+WHERE ref_oid = $1.obj_id;
 $$ LANGUAGE sql STABLE;
 
 
@@ -571,7 +699,7 @@ $$ LANGUAGE sql STABLE;
 
 
 CREATE FUNCTION dep_recurse.view_creation_statements(oid)
-    RETURNS SETOF varchar
+    RETURNS SETOF text
 AS $$
 SELECT s FROM (
     SELECT dep_recurse.create_view_statement($1) s
@@ -588,7 +716,7 @@ $$ LANGUAGE sql STABLE;
 
 
 CREATE FUNCTION dep_recurse.function_creation_statements(oid)
-    RETURNS SETOF varchar
+    RETURNS SETOF text
 AS $$
 SELECT pg_get_functiondef($1)
 UNION ALL
@@ -599,7 +727,7 @@ $$ LANGUAGE sql STABLE;
 
 
 CREATE FUNCTION dep_recurse.creation_statements(dep_recurse.obj_ref)
-    RETURNS SETOF varchar
+    RETURNS SETOF text
 AS $$
 SELECT * FROM
 (
@@ -617,7 +745,7 @@ $$ LANGUAGE sql STABLE;
 
 
 CREATE FUNCTION dep_recurse.drop_statement(dep_recurse.obj_ref)
-    RETURNS varchar
+    RETURNS text
 AS $$
 SELECT
     CASE $1.obj_type
@@ -632,9 +760,10 @@ $$ LANGUAGE sql STABLE;
 
 
 CREATE FUNCTION dep_recurse.dependent_drop_statements(dep_recurse.obj_ref)
-    RETURNS SETOF varchar
+    RETURNS SETOF text
 AS $$
-    SELECT * FROM (
+    SELECT *
+    FROM (
         SELECT dep_recurse.drop_statement(d.obj)
         FROM (
             SELECT *
@@ -647,9 +776,10 @@ $$ LANGUAGE sql STABLE;
 
 
 CREATE FUNCTION dep_recurse.dependent_create_statements(dep_recurse.obj_ref)
-    RETURNS SETOF varchar
+    RETURNS SETOF text
 AS $$
-    SELECT * FROM (
+    SELECT *
+    FROM (
         SELECT dep_recurse.creation_statements(d.obj)
         FROM (
             SELECT *
@@ -661,45 +791,58 @@ AS $$
 $$ LANGUAGE sql STABLE;
 
 
-CREATE FUNCTION dep_recurse.execute(statements varchar[])
-    RETURNS void
+CREATE FUNCTION dep_recurse.execute(anyelement, statements text[])
+    RETURNS anyelement
 AS $$
 DECLARE
-    statement varchar;
+    statement text;
 BEGIN
     FOREACH statement IN ARRAY statements LOOP
         EXECUTE statement;
     END LOOP;
-END;
-$$ LANGUAGE plpgsql VOLATILE STRICT;
-
-COMMENT ON FUNCTION dep_recurse.execute(varchar[]) IS
-'execute a set of schema altering queries';
-
-
-CREATE FUNCTION dep_recurse.alter(obj dep_recurse.obj_ref, changes varchar[])
-    RETURNS dep_recurse.obj_ref
-AS $$
-DECLARE
-    drop_statements varchar[];
-    recreate_statements varchar[];
-BEGIN
-    SELECT array_agg(d) INTO drop_statements FROM dep_recurse.dependent_drop_statements($1) d;
-    SELECT array_agg(c) INTO recreate_statements FROM dep_recurse.dependent_create_statements($1) c;
-
-    PERFORM dep_recurse.execute(drop_statements);
-    PERFORM dep_recurse.execute(changes);
-    PERFORM dep_recurse.execute(recreate_statements);
 
     RETURN $1;
 END;
-$$ LANGUAGE plpgsql VOLATILE SECURITY DEFINER;
+$$ LANGUAGE plpgsql VOLATILE STRICT;
+
+COMMENT ON FUNCTION dep_recurse.execute(anyelement, text[]) IS
+'execute a set of schema altering queries';
 
 
-CREATE FUNCTION dep_recurse.dependent_drop_statements(dep_recurse.obj_ref, exclude dep_recurse.obj_ref[])
-    RETURNS SETOF varchar
+CREATE FUNCTION dep_recurse.dependent_drop_statements_arr(dep_recurse.obj_ref)
+    RETURNS text[]
 AS $$
-    SELECT * FROM (
+    SELECT array_agg(statement)
+    FROM dep_recurse.dependent_drop_statements($1) statement;
+$$ LANGUAGE sql STABLE;
+
+
+CREATE FUNCTION dep_recurse.dependent_create_statements_arr(dep_recurse.obj_ref)
+    RETURNS text[]
+AS $$
+    SELECT array_agg(statement)
+    FROM dep_recurse.dependent_create_statements($1) statement;
+$$ LANGUAGE sql STABLE;
+
+
+CREATE FUNCTION dep_recurse.alter(obj dep_recurse.obj_ref, changes text[])
+    RETURNS dep_recurse.obj_ref
+AS $$
+    SELECT dep_recurse.execute(
+        $1,
+        dep_recurse.dependent_drop_statements_arr($1) ||
+        $2 ||
+        dep_recurse.dependent_create_statements_arr($1)
+    );
+$$ LANGUAGE sql VOLATILE SECURITY DEFINER;
+
+
+CREATE FUNCTION dep_recurse.dependent_drop_statements(
+        dep_recurse.obj_ref, exclude dep_recurse.obj_ref[])
+    RETURNS SETOF text
+AS $$
+    SELECT *
+    FROM (
         SELECT dep_recurse.drop_statement(d.obj)
         FROM (
             SELECT *
@@ -712,10 +855,12 @@ AS $$
 $$ LANGUAGE sql STABLE;
 
 
-CREATE FUNCTION dep_recurse.dependent_create_statements(dep_recurse.obj_ref, exclude dep_recurse.obj_ref[])
-    RETURNS SETOF varchar
+CREATE FUNCTION dep_recurse.dependent_create_statements(
+        dep_recurse.obj_ref, exclude dep_recurse.obj_ref[])
+    RETURNS SETOF text
 AS $$
-    SELECT * FROM (
+    SELECT *
+    FROM (
         SELECT dep_recurse.creation_statements(d.obj)
         FROM (
             SELECT *
@@ -728,25 +873,32 @@ AS $$
 $$ LANGUAGE sql STABLE;
 
 
-CREATE FUNCTION dep_recurse.alter(obj dep_recurse.obj_ref, changes varchar[], exclude dep_recurse.obj_ref[])
+CREATE FUNCTION dep_recurse.dependent_drop_statements_arr(
+        dep_recurse.obj_ref, exclude dep_recurse.obj_ref[])
+    RETURNS text[]
+AS $$
+    SELECT array_agg(statement)
+    FROM dep_recurse.dependent_drop_statements($1, $2) statement;
+$$ LANGUAGE sql STABLE;
+
+
+CREATE FUNCTION dep_recurse.dependent_create_statements_arr(
+        dep_recurse.obj_ref, exclude dep_recurse.obj_ref[])
+    RETURNS text[]
+AS $$
+    SELECT array_agg(statement)
+    FROM dep_recurse.dependent_create_statements($1, $2) statement;
+$$ LANGUAGE sql STABLE;
+
+
+CREATE OR REPLACE FUNCTION dep_recurse.alter(
+        obj dep_recurse.obj_ref, changes text[], exclude dep_recurse.obj_ref[])
     RETURNS dep_recurse.obj_ref
 AS $$
-DECLARE
-    drop_statements varchar[];
-    recreate_statements varchar[];
-BEGIN
-    SELECT
-        array_agg(d) INTO drop_statements
-    FROM dep_recurse.dependent_drop_statements($1, $3) d;
-
-    SELECT
-        array_agg(c) INTO recreate_statements
-    FROM dep_recurse.dependent_create_statements($1, $3) c;
-
-    PERFORM dep_recurse.execute(drop_statements);
-    PERFORM dep_recurse.execute(changes);
-    PERFORM dep_recurse.execute(recreate_statements);
-
-    RETURN $1;
-END;
-$$ LANGUAGE plpgsql VOLATILE SECURITY DEFINER;
+    SELECT dep_recurse.execute(
+        $1,
+        dep_recurse.dependent_drop_statements_arr($1, $3) ||
+        $2 ||
+        dep_recurse.dependent_create_statements_arr($1, $3)
+    );
+$$ LANGUAGE sql VOLATILE SECURITY DEFINER;

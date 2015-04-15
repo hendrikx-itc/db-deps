@@ -32,7 +32,7 @@ SELECT is(
         'public.stats_ex_inc(public.stats_ex)',
         'public.stats_ex2'
     ]
-) FROM dep_recurse.deps(dep_recurse.table_ref('public', 'stats')) d;
+) FROM dep_recurse.dependents(dep_recurse.table_ref('public', 'stats')) d;
 
 SELECT * FROM finish();
 

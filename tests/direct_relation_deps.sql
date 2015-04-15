@@ -27,12 +27,12 @@ FROM pg_class WHERE relname = 'stats';
 SELECT is(
     array_agg(d::text),
     ARRAY['public.stats_1']
-) FROM dep_recurse.direct_deps(dep_recurse.table_ref('public', 'stats')) d;
+) FROM dep_recurse.direct_dependents(dep_recurse.table_ref('public', 'stats')) d;
 
 SELECT is(
     array_agg(d::text),
     ARRAY['public.stats_1', 'public.stats_ex']
-) FROM dep_recurse.deps(dep_recurse.table_ref('public', 'stats')) d;
+) FROM dep_recurse.dependents(dep_recurse.table_ref('public', 'stats')) d;
 
 SELECT * FROM finish();
 

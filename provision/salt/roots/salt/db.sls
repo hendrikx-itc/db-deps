@@ -30,6 +30,8 @@ vagrant-db-user:
 test:
   postgres_database:
     - present
+    - require:
+      - postgres_user: vagrant-db-user
 
 install-pgtap:
   cmd.wait:
@@ -38,6 +40,6 @@ install-pgtap:
       - PGDATABASE: test
     - user: vagrant
     - watch:
-      - postgres_database: test
+      - postgres_user: test
     - require:
       - pkg: git

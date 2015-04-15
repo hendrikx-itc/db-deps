@@ -24,7 +24,7 @@ SELECT is(
         'CREATE VIEW public.dummy AS  SELECT 1 AS x,
     2 AS y;',
         'ALTER VIEW public.dummy OWNER TO dummy_user;'
-    ]::character varying[]
+    ]::text[]
 )
 FROM dep_recurse.view_creation_statements((dep_recurse.view_ref('public', 'dummy')).obj_id) statement;
 
