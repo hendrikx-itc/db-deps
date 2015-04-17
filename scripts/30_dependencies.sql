@@ -479,15 +479,6 @@ SELECT
 FROM dep_recurse.view_function_dependents;
 
 
-CREATE FUNCTION dep_recurse.direct_dependents(dep_recurse.obj_ref)
-    RETURNS SETOF dep_recurse.obj_ref
-AS $$
-SELECT obj_id, obj_type
-FROM dep_recurse.dependents
-WHERE ref_obj_id = $1.obj_id;
-$$ LANGUAGE sql STABLE;
-
-
 CREATE FUNCTION dep_recurse.relkind_to_obj_type("char")
     RETURNS dep_recurse.obj_type
 AS $$
@@ -584,35 +575,55 @@ WHERE ref_obj_id = $1.obj_id;
 $$ LANGUAGE sql STABLE;
 
 
+CREATE FUNCTION dep_recurse.direct_dependents(dep_recurse.obj_ref)
+    RETURNS SETOF dep_recurse.obj_ref
+AS $$
+SELECT obj_id, obj_type
+FROM dep_recurse.dependents
+WHERE ref_obj_id = $1.obj_id;
+$$ LANGUAGE sql STABLE;
+
+
+CREATE VIEW dep_recurse.dependents_tree AS
+WITH RECURSIVE dependents(root_obj_id, root_obj_type, obj_id, obj_type, depth, path, cycle) AS (
+    SELECT
+        dirdep.ref_obj_id root_obj_id,
+        dirdep.ref_obj_type root_obj_type,
+        dirdep.obj_id,
+        dirdep.obj_type,
+        1 AS depth,
+        ARRAY[dirdep.obj_id] AS path,
+        false AS cycle
+    FROM dep_recurse.dependents dirdep
+    UNION ALL
+    SELECT
+        d.root_obj_id,
+        d.root_obj_type,
+        dependents.obj_id,
+        dependents.obj_type,
+        d.depth + 1 AS depth,
+        d.path || d.obj_id AS path,
+        d.obj_id = ANY(d.path) AS cycle
+    FROM dependents d
+    JOIN dep_recurse.dependents ON dependents.ref_obj_id = d.obj_id
+    WHERE NOT cycle
+)
+SELECT
+    root_obj_id,
+    root_obj_type,
+    (obj_id, obj_type)::dep_recurse.obj_ref obj_ref,
+    max(depth) depth
+FROM dependents
+WHERE obj_id IS NOT NULL
+GROUP BY root_obj_id, root_obj_type, obj_id, obj_type;
+
+
 CREATE FUNCTION dep_recurse.dependents(dep_recurse.obj_ref)
     RETURNS SETOF dep_recurse.dependent
 AS $$
-WITH RECURSIVE dependents(obj_ref, depth, path, cycle) AS (
-    SELECT
-        dirdep AS obj_ref,
-        1 AS depth,
-        ARRAY[dirdep::text] AS path,
-        false AS cycle
-    FROM dep_recurse.direct_dependents($1) dirdep
-    UNION ALL
-    SELECT
-        foo.obj_ref,
-        foo.depth + 1 AS depth,
-        foo.path || foo.obj_ref::text AS path,
-        foo.obj_ref::text = ANY(foo.path) AS cycle
-    FROM (
-        SELECT
-            dep_recurse.direct_dependents(d.obj_ref) AS obj_ref,
-            d.depth,
-            d.path
-        FROM dependents d
-        WHERE NOT cycle
-    ) foo
-)
-SELECT obj_ref, max(depth)
-FROM dependents
-WHERE obj_ref IS NOT NULL
-GROUP BY obj_ref;
+SELECT obj_ref, depth
+FROM dep_recurse.dependents_tree
+WHERE root_obj_id = $1.obj_id
 $$ LANGUAGE sql STABLE;
 
 
