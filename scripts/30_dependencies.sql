@@ -408,29 +408,6 @@ WHERE
 GROUP BY rwr_cl.oid, dep.refobjid;
 
 
-CREATE FUNCTION dep_recurse.direct_view_relation_dependents(oid)
-    RETURNS SETOF dep_recurse.obj_ref
-AS $$
-    SELECT
-        view_oid,
-        'view'::dep_recurse.obj_type
-    FROM
-        dep_recurse.view_relation_dependents
-    WHERE
-        relation_oid = $1
-
-    UNION ALL
-
-    SELECT
-        view_oid,
-        'materialized view'::dep_recurse.obj_type
-    FROM
-        dep_recurse.materialized_view_relation_dependents
-    WHERE
-        relation_oid = $1
-$$ LANGUAGE sql STABLE;
-
-
 CREATE VIEW dep_recurse.function_relation_dependents AS
 SELECT
     pg_class.oid relation_oid,
@@ -442,88 +419,52 @@ JOIN pg_proc ON pg_proc.oid = pg_depend.objid
 WHERE pg_depend.deptype = 'n';
 
 
-CREATE FUNCTION dep_recurse.direct_function_relation_dependents(oid)
-    RETURNS SETOF dep_recurse.obj_ref
-AS $$
-SELECT
-    dep_recurse.function_ref(function_oid)
-FROM
-    dep_recurse.function_relation_dependents
-WHERE
-    relation_oid = $1
-$$ LANGUAGE sql STABLE;
-
-COMMENT ON FUNCTION dep_recurse.direct_function_relation_dependents(oid) IS
-'return set of functions that are directly dependent on the relation with id oid';
-
-
 CREATE VIEW dep_recurse.relation_dependents AS
 SELECT
-    relation_oid relation_oid,
+    relation_oid ref_obj_id,
+    'table'::dep_recurse.obj_type ref_obj_type,
     view_oid obj_id,
     'view'::dep_recurse.obj_type
 FROM dep_recurse.view_relation_dependents
 UNION ALL
 SELECT
-    relation_oid relation_oid,
+    relation_oid ref_obj_id,
+    'table'::dep_recurse.obj_type ref_obj_type,
     view_oid obj_id,
     'materialized view'::dep_recurse.obj_type
 FROM dep_recurse.materialized_view_relation_dependents
 UNION ALL
 SELECT
-    relation_oid relation_oid,
+    relation_oid ref_obj_id,
+    'table'::dep_recurse.obj_type ref_obj_type,
     function_oid obj_id,
     'function'::dep_recurse.obj_type
 FROM dep_recurse.function_relation_dependents
 UNION ALL
 SELECT
-    parent_relation_oid relation_oid,
+    parent_relation_oid ref_obj_id,
+    'table'::dep_recurse.obj_type ref_obj_type,
     child_relation_oid obj_id,
     'table'::dep_recurse.obj_type
 FROM dep_recurse.table_relation_dependents;
 
 
-CREATE FUNCTION dep_recurse.direct_relation_dependents(oid)
-    RETURNS SETOF dep_recurse.obj_ref
-AS $$
-SELECT obj_id, obj_type
-FROM dep_recurse.relation_dependents
-WHERE relation_oid = $1;
-$$ LANGUAGE sql STABLE;
-
-COMMENT ON FUNCTION dep_recurse.direct_relation_dependents(oid) IS
-'return set of references to objects that are directly dependent on the '
-'relation (pg_class) oid';
-
-
 CREATE VIEW dep_recurse.view_function_dependents AS
 SELECT
-    pg_rewrite.ev_class view_oid,
-    refobjid function_oid
+    pg_rewrite.ev_class obj_id,
+    'view'::dep_recurse.obj_type obj_type,
+    refobjid ref_obj_id,
+    'function'::dep_recurse.obj_type ref_obj_type
 FROM pg_depend
-JOIN pg_rewrite ON pg_depend.objid = pg_rewrite.oid;
-
-
-CREATE FUNCTION dep_recurse.direct_view_function_dependents(oid)
-    RETURNS SETOF dep_recurse.obj_ref
-AS $$
-SELECT dep_recurse.view_ref(view_oid)
-FROM dep_recurse.view_function_dependents
-WHERE function_oid = $1;
-$$ LANGUAGE sql STABLE;
-
-
-CREATE FUNCTION dep_recurse.direct_function_dependents(oid)
-    RETURNS SETOF dep_recurse.obj_ref
-AS $$
-SELECT dep_recurse.direct_view_function_dependents($1);
-$$ LANGUAGE sql STABLE;
+JOIN pg_rewrite ON pg_depend.objid = pg_rewrite.oid
+JOIN pg_proc ON pg_proc.oid = refobjid;
 
 
 CREATE VIEW dep_recurse.dependents AS
 
 SELECT
-    relation_oid ref_oid,
+    ref_obj_id,
+    ref_obj_type,
     obj_id,
     obj_type
 FROM dep_recurse.relation_dependents
@@ -531,9 +472,10 @@ FROM dep_recurse.relation_dependents
 UNION -- prevent potential duplicates
 
 SELECT
-    function_oid ref_oid,
-    view_oid obj_id,
-    'view'::dep_recurse.obj_type
+    ref_obj_id,
+    ref_obj_type,
+    obj_id,
+    obj_type
 FROM dep_recurse.view_function_dependents;
 
 
@@ -542,7 +484,7 @@ CREATE FUNCTION dep_recurse.direct_dependents(dep_recurse.obj_ref)
 AS $$
 SELECT obj_id, obj_type
 FROM dep_recurse.dependents
-WHERE ref_oid = $1.obj_id;
+WHERE ref_obj_id = $1.obj_id;
 $$ LANGUAGE sql STABLE;
 
 
