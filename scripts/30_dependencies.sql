@@ -236,6 +236,7 @@ AS $$
 SELECT obj_ref, depth
 FROM dep_recurse.dependents_tree
 WHERE root_obj_id = $1.obj_id
+ORDER BY obj_ref;
 $$ LANGUAGE sql STABLE;
 
 
