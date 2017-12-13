@@ -4,8 +4,8 @@ set -e
 DBNAME=$1
 SOURCEPATH=$2
 
-psql -d postgres -c "DROP DATABASE $DBNAME;"
-psql -d postgres -c "CREATE DATABASE $DBNAME;"
+#psql -d postgres -c "DROP DATABASE \"$DBNAME\";"
+psql -d postgres -c "CREATE DATABASE \"$DBNAME\";"
 psql -d $DBNAME -c "CREATE EXTENSION pgtap;"
 
 find $SOURCEPATH -name '*.sql' | sort | while read filepath

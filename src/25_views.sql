@@ -90,22 +90,23 @@ JOIN pg_proc ON pg_proc.oid = refobjid;
 
 
 CREATE VIEW dep_recurse.dependents AS
+SELECT * FROM (
+    SELECT
+        ref_obj_id,
+        ref_obj_type,
+        obj_id,
+        obj_type
+    FROM dep_recurse.relation_dependents
 
-SELECT
-    ref_obj_id,
-    ref_obj_type,
-    obj_id,
-    obj_type
-FROM dep_recurse.relation_dependents
+    UNION -- prevent potential duplicates
 
-UNION -- prevent potential duplicates
-
-SELECT
-    ref_obj_id,
-    ref_obj_type,
-    obj_id,
-    obj_type
-FROM dep_recurse.view_function_dependents;
+    SELECT
+        ref_obj_id,
+        ref_obj_type,
+        obj_id,
+        obj_type
+    FROM dep_recurse.view_function_dependents
+) d WHERE obj_id <> ref_obj_id;
 
 
 CREATE VIEW dep_recurse.view_relation_dependencies AS

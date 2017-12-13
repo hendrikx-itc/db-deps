@@ -282,15 +282,11 @@ CREATE FUNCTION dep_recurse.creation_statements(dep_recurse.obj_ref)
 AS $$
 SELECT * FROM
 (
-    SELECT
-        CASE $1.obj_type
-            WHEN 'view' THEN
-                dep_recurse.view_creation_statements($1.obj_id)
-            WHEN 'materialized view' THEN
-                dep_recurse.view_creation_statements($1.obj_id)
-            WHEN 'function' THEN
-                dep_recurse.function_creation_statements($1.obj_id)
-        END AS statement
+    SELECT dep_recurse.view_creation_statements($1.obj_id) AS statement WHERE $1.obj_type = 'view'
+    UNION ALL
+    SELECT dep_recurse.view_creation_statements($1.obj_id) AS statement WHERE $1.obj_type = 'materialized view'
+    UNION ALL
+    SELECT dep_recurse.function_creation_statements($1.obj_id) AS statement WHERE $1.obj_type = 'function'
 ) s WHERE statement IS NOT NULL;
 $$ LANGUAGE sql STABLE;
 
@@ -298,15 +294,11 @@ $$ LANGUAGE sql STABLE;
 CREATE FUNCTION dep_recurse.drop_statement(dep_recurse.obj_ref)
     RETURNS text
 AS $$
-SELECT
-    CASE $1.obj_type
-        WHEN 'view' THEN
-            dep_recurse.view_drop_statement($1.obj_id)
-        WHEN 'materialized view' THEN
-            dep_recurse.materialized_view_drop_statement($1.obj_id)
-        WHEN 'function' THEN
-            dep_recurse.function_drop_statement($1.obj_id)
-    END
+    SELECT dep_recurse.view_drop_statement($1.obj_id) AS statement WHERE $1.obj_type = 'view'
+    UNION ALL
+    SELECT dep_recurse.materialized_view_drop_statement($1.obj_id) AS statement WHERE $1.obj_type = 'materialized view'
+    UNION ALL
+    SELECT dep_recurse.function_drop_statement($1.obj_id) AS statement WHERE $1.obj_type = 'function'
 $$ LANGUAGE sql STABLE;
 
 
